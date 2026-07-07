@@ -5,7 +5,7 @@ var menu = [
     { id: 'fw-sim', icon: 'i-firework', label: '烟花模拟器' }
   ]},
   { id: 'announcements', icon: 'i-list', label: '公告' },
-  { id: 'messages', icon: 'i-list', label: '留言板' },
+  // { id: 'messages', icon: 'i-list', label: '留言板' },
   { id: 'users', icon: 'i-users', label: '用户管理', admin: true, kids: [
     { id: 'users-list', icon: 'i-list', label: '用户列表' }
   ]},

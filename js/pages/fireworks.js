@@ -1,5 +1,67 @@
 // preset indices
 var fwCustomColors = []; // custom hex strings
+var fwSyncMode = 'solo'; // solo | multi
+var fwSocket = null;
+var fwSyncId = ''; // unique id to skip self-broadcast
+
+function fwToggleSync() {
+  if (fwSyncMode === 'solo') {
+    fwSyncMode = 'multi';
+    fwConnectWS();
+  } else {
+    fwSyncMode = 'solo';
+    fwDisconnectWS();
+  }
+  var btn = document.getElementById('fwSyncBtn');
+  if (btn) {
+    btn.setAttribute('data-sync', fwSyncMode);
+    btn.textContent = fwSyncMode === 'multi' ? '多人' : '单人';
+  }
+  toast(fwSyncMode === 'multi' ? '已切换到多人同步模式' : '已切换到单人模式');
+}
+
+function fwConnectWS() {
+  if (fwSocket && fwSocket.readyState === WebSocket.OPEN) return;
+  var proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  var wsUrl = proto + '//' + location.host + '/ws/firework?token=' + TOKEN;
+  fwSocket = new WebSocket(wsUrl);
+  fwSyncId = Math.random().toString(36).slice(2);
+  fwSocket.onopen = function() {
+    console.log('[WS] connected');
+  };
+  fwSocket.onmessage = function(e) {
+    try {
+      var d = JSON.parse(e.data);
+      if (d.sender === fwSyncId) return; // skip own
+      fwRemoteLaunch(d.fx, d.fy, d.tx, d.ty, d.color, d.type);
+    } catch(er) {}
+  };
+  fwSocket.onclose = function() {
+    fwSocket = null;
+    if (fwSyncMode === 'multi') {
+      // reconnect after 2s
+      setTimeout(function() {
+        if (fwSyncMode === 'multi' && fwActive) fwConnectWS();
+      }, 2000);
+    }
+  };
+  fwSocket.onerror = function() {};
+}
+
+function fwDisconnectWS() {
+  if (fwSocket) { fwSocket.close(); fwSocket = null; }
+}
+
+function fwBroadcast(data) {
+  if (fwSyncMode === 'multi' && fwSocket && fwSocket.readyState === WebSocket.OPEN) {
+    data.sender = fwSyncId;
+    fwSocket.send(JSON.stringify(data));
+  }
+}
+
+function fwRemoteLaunch(fx, fy, tx, ty, color, type) {
+  fwRockets.push({ x: fx, y: fy, tx: tx, ty: ty, vx: (tx - fx) * 0.018, vy: (ty - fy) * 0.018 - 2.5, color: color, trail: [], type: type });
+}
 
 function allColors() {
   var list = fwSelectedColors.map(function(i) { return FW_COLORS[i].hex; });
@@ -95,6 +157,13 @@ function fwStart() {
   }, {passive: false});
   buildPalette();
   fwActive = true;
+  // sync button state
+  var btn = document.getElementById('fwSyncBtn');
+  if (btn) {
+    btn.setAttribute('data-sync', fwSyncMode);
+    btn.textContent = fwSyncMode === 'multi' ? '多人' : '单人';
+  }
+  if (fwSyncMode === 'multi') fwConnectWS();
   fwAuto();
   loop();
 }
@@ -104,6 +173,7 @@ function fwStop() {
   if (fwRafId) cancelAnimationFrame(fwRafId);
   if (fwAutoId) clearInterval(fwAutoId);
   fwRockets.length = 0; fwParticles.length = 0; fwSparkles.length = 0;
+  fwDisconnectWS();
 }
 
 function hideHint() { var h = document.getElementById('fwHint'); if (h) { h.style.opacity = '0'; setTimeout(function() { if (h) h.textContent = ''; }, 400); } }
@@ -136,6 +206,8 @@ function launch(fx, fy, tx, ty) {
   var clr = pickColor();
   var type = Math.random() < 0.25 ? 'ring' : (Math.random() < 0.5 ? 'willow' : 'sphere');
   fwRockets.push({ x: fx, y: fy, tx: tx, ty: ty, vx: (tx - fx) * 0.018, vy: (ty - fy) * 0.018 - 2.5, color: clr, trail: [], type: type });
+  // broadcast to others
+  fwBroadcast({ fx: fx, fy: fy, tx: tx, ty: ty, color: clr, type: type });
 }
 
 function loop() {

@@ -47,6 +47,8 @@ function pageFireworks() {
       '<button class="fw-chip" data-fwm="auto" onclick="fwSetMode(\'auto\')">自动发射</button>' +
       '<button class="fw-chip" data-fwm="both" onclick="fwSetMode(\'both\')">混合模式</button>' +
       '<button class="fw-chip" onclick="fwClear()">清空</button>' +
+      '<span style="flex:1"></span>' +
+      '<button class="fw-chip" id="fwSyncBtn" data-sync="solo" onclick="fwToggleSync()">单人</button>' +
     '</div></div>';
 }
 
