@@ -22,15 +22,16 @@ function fwSetRoom(mode, roomId) {
   } else if (mode === 'public') {
     fwRoomId = 'public';
   } else if (mode === 'private') {
-    fwRoomId = roomId || fwRoomId;
-    if (!fwRoomId || fwRoomId === 'public') fwRoomId = genRoomCode();
+    var input = roomId ? roomId.toUpperCase().trim() : '';
+    if (!input) { toast('请输入房间码'); updateRoomUI(); return; }
+    fwRoomId = input;
   }
   fwRoomListVisible = false;
   var panel = document.getElementById('fwRoomPanel');
   if (panel) panel.style.display = 'none';
   updateRoomUI();
   if (fwRoomMode !== 'solo') fwConnectWS();
-  toast(fwRoomMode === 'solo' ? '单人模式' : '已加入房间 ' + fwRoomId);
+  else toast('单人模式');
 }
 
 function genRoomCode() {
@@ -60,7 +61,12 @@ function fwConnectWS() {
   var proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
   var wsUrl = proto + '//' + location.host + '/ws/firework?token=' + TOKEN + '&roomId=' + encodeURIComponent(fwRoomId);
   fwSocket = new WebSocket(wsUrl);
-  fwSocket.onopen = function() { console.log('[WS] room=' + fwRoomId); };
+  var opened = false;
+  fwSocket.onopen = function() {
+    opened = true;
+    console.log('[WS] room=' + fwRoomId);
+    toast('已加入房间 ' + fwRoomId);
+  };
   fwSocket.onmessage = function(e) {
     try {
       var d = JSON.parse(e.data);
@@ -74,10 +80,14 @@ function fwConnectWS() {
   };
   fwSocket.onclose = function() {
     fwSocket = null;
-    if (fwRoomMode !== 'solo') {
+    if (fwRoomMode !== 'solo' && opened) {
       setTimeout(function() {
         if (fwRoomMode !== 'solo' && fwActive) fwConnectWS();
       }, 2000);
+    }
+    if (!opened && fwRoomMode !== 'solo') {
+      toast('房间 ' + fwRoomId + ' 不存在或无法加入', 'err');
+      fwSetRoom('solo');
     }
   };
   fwSocket.onerror = function() {};

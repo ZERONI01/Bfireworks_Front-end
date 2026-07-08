@@ -380,18 +380,3 @@ tr:hover td{background:#fafbfc}
   padding:6px 8px;border-radius:4px;font-size:12px;cursor:pointer;
 }
 .room-panel button:hover { background:rgba(255,255,255,0.08);color:#fff }
-
-/* ── Mobile: sidebar overlay full ─────────────── */
-@media(max-width:768px){
-  .sidebar{position:fixed;left:0;top:0;z-index:200;width:230px;height:100vh;transform:translateX(-100%);transition:transform .25s}
-  .sidebar.open{transform:translateX(0)}
-  .sidebar-overlay.show{display:block}
-  .main{margin-left:0}
-  .topbar{padding:8px 12px}
-  .menu-toggle{display:flex}
-  .fw-bar{gap:4px;flex-wrap:wrap}
-  .fw-chip{padding:4px 8px;font-size:11px}
-  .stat-row{grid-template-columns:repeat(2,1fr)}
-  .login-landing .landing-buttons{gap:28px}
-  .login-landing .landing-btn{width:80px;padding:7px 0;font-size:11px}
-}
