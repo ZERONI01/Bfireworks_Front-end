@@ -1,47 +1,82 @@
-// preset indices
-var fwCustomColors = []; // custom hex strings
-var fwSyncMode = 'solo'; // solo | multi
-var fwSocket = null;
-var fwSyncId = ''; // unique id to skip self-broadcast
+// ── Room & Sync ─────────────────────────────────────
+var fwCustomColors = [];
+var fwRoomMode = 'solo';   // solo | public | private
+var fwRoomId   = 'public'; // current room ID
+var fwSocket   = null;
+var fwSyncId   = Math.random().toString(36).slice(2)+Date.now().toString(36);
+var fwRoomListVisible = false;
 
 function fwToggleSync() {
-  if (fwSyncMode === 'solo') {
-    fwSyncMode = 'multi';
-    fwConnectWS();
+  fwRoomListVisible = !fwRoomListVisible;
+  var panel = document.getElementById('fwRoomPanel');
+  if (panel) {
+    panel.style.display = fwRoomListVisible ? 'block' : 'none';
+  }
+}
+
+function fwSetRoom(mode, roomId) {
+  fwDisconnectWS();
+  fwRoomMode = mode;
+  if (mode === 'solo') {
+    fwRoomId = '';
+  } else if (mode === 'public') {
+    fwRoomId = 'public';
+  } else if (mode === 'private') {
+    fwRoomId = roomId || fwRoomId;
+    if (!fwRoomId || fwRoomId === 'public') fwRoomId = genRoomCode();
+  }
+  fwRoomListVisible = false;
+  var panel = document.getElementById('fwRoomPanel');
+  if (panel) panel.style.display = 'none';
+  updateRoomUI();
+  if (fwRoomMode !== 'solo') fwConnectWS();
+  toast(fwRoomMode === 'solo' ? '单人模式' : '已加入房间 ' + fwRoomId);
+}
+
+function genRoomCode() {
+  var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  var code = '';
+  for (var i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  return code;
+}
+
+function updateRoomUI() {
+  var btn = document.getElementById('fwRoomBtn');
+  if (!btn) return;
+  if (fwRoomMode === 'solo') {
+    btn.textContent = '单人';
+    btn.className = 'fw-chip';
+  } else if (fwRoomMode === 'public') {
+    btn.textContent = '公共';
+    btn.className = 'fw-chip active';
   } else {
-    fwSyncMode = 'solo';
-    fwDisconnectWS();
+    btn.textContent = fwRoomId;
+    btn.className = 'fw-chip active';
   }
-  var btn = document.getElementById('fwSyncBtn');
-  if (btn) {
-    btn.setAttribute('data-sync', fwSyncMode);
-    btn.textContent = fwSyncMode === 'multi' ? '多人' : '单人';
-  }
-  toast(fwSyncMode === 'multi' ? '已切换到多人同步模式' : '已切换到单人模式');
 }
 
 function fwConnectWS() {
   if (fwSocket && fwSocket.readyState === WebSocket.OPEN) return;
   var proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  var wsUrl = proto + '//' + location.host + '/ws/firework?token=' + TOKEN;
+  var wsUrl = proto + '//' + location.host + '/ws/firework?token=' + TOKEN + '&roomId=' + encodeURIComponent(fwRoomId);
   fwSocket = new WebSocket(wsUrl);
-  fwSyncId = Math.random().toString(36).slice(2);
-  fwSocket.onopen = function() {
-    console.log('[WS] connected');
-  };
+  fwSocket.onopen = function() { console.log('[WS] room=' + fwRoomId); };
   fwSocket.onmessage = function(e) {
     try {
       var d = JSON.parse(e.data);
-      if (d.sender === fwSyncId) return; // skip own
-      fwRemoteLaunch(d.fx, d.fy, d.tx, d.ty, d.color, d.type);
+      if (d.sender === fwSyncId) return;
+      var rx = d.fx * (fwW / d.fwW);
+      var ry = d.fy * (fwH / d.fwH);
+      var rtx = d.tx * (fwW / d.fwW);
+      var rty = d.ty * (fwH / d.fwH);
+      fwRemoteLaunch(rx, ry, rtx, rty, d.color, d.type);
     } catch(er) {}
   };
   fwSocket.onclose = function() {
     fwSocket = null;
-    if (fwSyncMode === 'multi') {
-      // reconnect after 2s
+    if (fwRoomMode !== 'solo') {
       setTimeout(function() {
-        if (fwSyncMode === 'multi' && fwActive) fwConnectWS();
+        if (fwRoomMode !== 'solo' && fwActive) fwConnectWS();
       }, 2000);
     }
   };
@@ -53,13 +88,17 @@ function fwDisconnectWS() {
 }
 
 function fwBroadcast(data) {
-  if (fwSyncMode === 'multi' && fwSocket && fwSocket.readyState === WebSocket.OPEN) {
+  if (fwRoomMode !== 'solo' && fwSocket && fwSocket.readyState === WebSocket.OPEN) {
     data.sender = fwSyncId;
+    data.fwW = fwW;
+    data.fwH = fwH;
     fwSocket.send(JSON.stringify(data));
   }
 }
 
 function fwRemoteLaunch(fx, fy, tx, ty, color, type) {
+  tx = Math.max(20, Math.min(fwW - 20, tx));
+  ty = Math.max(fwH * 0.06, Math.min(fwH * 0.72, ty));
   fwRockets.push({ x: fx, y: fy, tx: tx, ty: ty, vx: (tx - fx) * 0.018, vy: (ty - fy) * 0.018 - 2.5, color: color, trail: [], type: type });
 }
 
@@ -157,13 +196,8 @@ function fwStart() {
   }, {passive: false});
   buildPalette();
   fwActive = true;
-  // sync button state
-  var btn = document.getElementById('fwSyncBtn');
-  if (btn) {
-    btn.setAttribute('data-sync', fwSyncMode);
-    btn.textContent = fwSyncMode === 'multi' ? '多人' : '单人';
-  }
-  if (fwSyncMode === 'multi') fwConnectWS();
+  updateRoomUI();
+  if (fwRoomMode !== 'solo') fwConnectWS();
   fwAuto();
   loop();
 }

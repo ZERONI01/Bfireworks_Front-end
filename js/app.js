@@ -43,12 +43,20 @@ function pageFireworks() {
     '<div class="fw-hint" id="fwHint">点击画面发射烟花</div>' +
     '<div class="color-palette" id="colorPalette"></div>' +
     '<div class="fw-bar">' +
-      '<button class="fw-chip active" data-fwm="click" onclick="fwSetMode(\'click\')">点击发射</button>' +
-      '<button class="fw-chip" data-fwm="auto" onclick="fwSetMode(\'auto\')">自动发射</button>' +
-      '<button class="fw-chip" data-fwm="both" onclick="fwSetMode(\'both\')">混合模式</button>' +
+      '<button class="fw-chip active" data-fwm="click" onclick="fwSetMode(\'click\')">点击</button>' +
+      '<button class="fw-chip" data-fwm="auto" onclick="fwSetMode(\'auto\')">自动</button>' +
+      '<button class="fw-chip" data-fwm="both" onclick="fwSetMode(\'both\')">混合</button>' +
       '<button class="fw-chip" onclick="fwClear()">清空</button>' +
       '<span style="flex:1"></span>' +
-      '<button class="fw-chip" id="fwSyncBtn" data-sync="solo" onclick="fwToggleSync()">单人</button>' +
+      '<div style="position:relative">' +
+        '<button class="fw-chip" id="fwRoomBtn" onclick="fwToggleSync()">单人</button>' +
+        '<div class="room-panel" id="fwRoomPanel" style="display:none">' +
+          '<button onclick="fwSetRoom(\'solo\')">单人模式</button>' +
+          '<button onclick="fwSetRoom(\'public\')">公共房间</button>' +
+          '<div style="display:flex;gap:4px"><input id="fwRoomInput" placeholder="输入房间码" style="flex:1;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#fff;padding:3px 6px;border-radius:3px;font-size:11px"><button onclick="fwSetRoom(\'private\',document.getElementById(\'fwRoomInput\').value.trim())" style="background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.15);color:#fff;padding:3px 8px;border-radius:3px;font-size:11px;cursor:pointer">加入</button></div>' +
+          '<button onclick="var c=genRoomCode();document.getElementById(\'fwRoomInput\').value=c;fwSetRoom(\'private\',c)">创建私密房间</button>' +
+        '</div>' +
+      '</div>' +
     '</div></div>';
 }
 
@@ -94,5 +102,6 @@ function pageSettings() {
       '<div class="form-group"><label>确认新密码</label><input type="password" id="sConfirm" placeholder="再次输入"></div>' +
       '<button class="btn btn-primary" onclick="chgPass()">更新密码</button> ' +
       '<span id="sMsg" style="font-size:12px;margin-left:8px"></span></div>' +
-    '<div class="card"><h3>数据管理</h3><p style="color:var(--text-secondary);font-size:13px;margin-bottom:8px">数据库操作请通过 Navicat 管理。</p></div>';
+    '<div class="card"><h3>关于</h3><p style="color:var(--text-secondary);font-size:13px;margin-bottom:4px">BWZ工具站 v1.0</p>' +
+      '<p style="color:var(--text-muted);font-size:11px"><a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener" style="color:var(--text-muted);text-decoration:none">浙ICP备2026050961号</a></p></div>';
 }
