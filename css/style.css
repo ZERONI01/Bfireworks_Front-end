@@ -65,6 +65,10 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);height:100vh
   position:absolute;bottom:24px;z-index:2;
   color:rgba(255,255,255,0.18);font-size:12px;letter-spacing:2px;text-align:center;width:100%;
 }
+.login-Upfooter{
+  position:absolute;bottom:50px;z-index:2;
+  color:rgba(255, 255, 255, 0.18);font-size:12px;letter-spacing:2px;text-align:center;width:100%;
+}
 
 /* Stage 2 — Compact Form */
 .login-form-panel{
