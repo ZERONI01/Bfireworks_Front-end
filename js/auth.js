@@ -26,19 +26,33 @@ function hideLoginForm() {
 
 document.getElementById('authForm').addEventListener('submit', function(e) {
   e.preventDefault();
+
+  var submitBtn = e.target.querySelector('button[type="submit"]') || document.getElementById('authSubmit');
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.textContent = '处理中...';
+  }
+
+  function resetBtn() {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = authMode === 'register' ? '注册' : '登录'; 
+    }
+  }
   var u = document.getElementById('authUser').value.trim();
   var p = document.getElementById('authPass').value;
   var c = document.getElementById('authConfirm').value;
   var err = document.getElementById('loginError');
-  if (!u || !p) { err.textContent = '请填写所有字段'; return; }
+  if (!u || !p) { err.textContent = '请填写所有字段'; resetBtn();return; }
   if (authMode === 'register') {
-    if (p !== c) { err.textContent = '两次密码不一致'; return; }
-    if (p.length < 4) { err.textContent = '密码至少4位'; return; }
+    if (p !== c) { err.textContent = '两次密码不一致'; resetBtn(); return; }
+    if (p.length < 4) { err.textContent = '密码至少4位'; resetBtn(); return; }
     api('POST', '/api/register', { username: u, password: p }).then(function() {
       toast('注册成功，请登录');
       hideLoginForm();
       setTimeout(function() { showLoginForm('login'); }, 200);
-    }).catch(function(e) { err.textContent = e.message; });
+    }).catch(function(e) { err.textContent = e.message; })
+    .finally(function() { resetBtn(); });
     return;
   }
   api('POST', '/api/login', { username: u, password: p }).then(function(data) {
@@ -52,7 +66,8 @@ document.getElementById('authForm').addEventListener('submit', function(e) {
     buildSidebar();
     go('home');
     toast('欢迎回来，' + me.username);
-  }).catch(function(e) { err.textContent = e.message; });
+  }).catch(function(e) { err.textContent = e.message; })
+  .finally(function() { resetBtn(); });
 });
 
 function logout() {
