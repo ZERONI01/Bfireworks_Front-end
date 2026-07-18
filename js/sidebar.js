@@ -4,6 +4,9 @@ var menu = [
   { id: 'fireworks', icon: 'i-firework', label: '烟花功能', open: true, kids: [
     { id: 'fw-sim', icon: 'i-firework', label: '烟花模拟器' }
   ]},
+  { id: 'games', icon: 'i-game', label: '游戏中心', kids: [
+    { id: 'jump', icon: 'i-game', label: '跳一跳' }
+  ]},
   { id: 'announcements', icon: 'i-list', label: '公告' },
   // { id: 'messages', icon: 'i-list', label: '留言板' },
   { id: 'users', icon: 'i-users', label: '用户管理', admin: true, kids: [
@@ -13,7 +16,7 @@ var menu = [
 ];
 
 var curPage = 'home';
-var expand = { fireworks: true, users: false };
+var expand = { fireworks: true, games: true, users: false };
 var sidebarCollapsed = false;
 
 function toggleSidebar() {
@@ -91,6 +94,7 @@ function go(pageId) {
     if (!me || me.role !== 'admin') { toast('无权限访问', 'err'); return; }
   }
   if (curPage === 'fw-sim') fwStop();
+  if (curPage === 'jump' && typeof jumpStop === 'function') jumpStop();
   curPage = pageId;
   highlightNav();
   render(pageId);

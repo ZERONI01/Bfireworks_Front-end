@@ -5,6 +5,7 @@ function render(pageId) {
   switch (pageId) {
     case 'home': h = pageHome(); break;
     case 'fw-sim': h = pageFireworks(); break;
+    case 'jump': h = pageJump(); break;
     case 'announcements': h = pageAnnouncements(); break;
     case 'messages': h = pageMessages(); break;
     case 'users-list': h = pageUsers(); break;
@@ -13,6 +14,7 @@ function render(pageId) {
   }
   c.innerHTML = h;
   if (pageId === 'fw-sim') fwStart();
+  if (pageId === 'jump') jumpStart();
 }
 
 function pageHome() {

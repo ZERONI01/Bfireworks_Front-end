@@ -77,6 +77,7 @@ function logout() {
   document.getElementById('appShell').style.display = 'none';
   hideLoginForm();
   if (fwStop) fwStop();
+  if (typeof jumpStop === 'function') jumpStop();
 }
 
 (function() {
