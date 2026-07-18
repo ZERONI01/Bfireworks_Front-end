@@ -1,19 +1,41 @@
 // ── 跳一跳 ─────────────────────────────────────────────────
-// 玩法：按住画面蓄力，松开起跳。落在下一个盒子上得分，落中盒心得 2 分。
-// 后端接口：GET/POST/PUT/DELETE /api/jump（成绩排行榜）
+// 后端接口：GET/POST/PUT/DELETE /api/jump
 var jCanvas, jCtx, jW = 0, jH = 0, jDpr = 1;
 var jRunning = false, jRaf = null, jLastTs = 0;
 var jState = 'idle';            // idle | ready | charging | jumping | falling | over
 var jBoxes = [];                // {x, y, r, h, color, deco}  顶面中心世界坐标
 var jCur = 0;                   // 玩家所站盒子的下标
 var jPlayer = { x: 0, y: 0, z: 0, sx: 1, sy: 1, alpha: 1, fx: 1 };
-var jCharge = 0, jScore = 0, jBest = 0, jFinalScore = 0, jSaved = false;
+var jCharge = 0, jScore = 0, jBest = 0, jFinalScore = 0, jSaved = false,jPerTime = 0;
 var jCam = { x: 0, y: 0 }, jCamT = { x: 0, y: 0 };
 var jJump = null, jFall = null;
 var jParts = [], jFloats = [], jClouds = [];
 var J_DIRS = [{ x: 0.922, y: 0.387 }, { x: 0.922, y: -0.387 }]; // 两条等距斜轴
 var J_COLORS = ['#8fa8d0', '#a3c4a0', '#d0a3a3', '#cbb26a', '#7fb3b3', '#b39ddb', '#90a4ae', '#e0a899', '#86c5da', '#a8b6e0'];
 var J_MAX_DIST = 250, J_MIN_DIST = 34, J_CHARGE_MS = 1500;
+
+// ── 音效 ───────────────────────────────────────────────────
+var jAudio = null;
+var jChargeLast = 0;
+function jInitAudio() { if (!jAudio) try { jAudio = new (window.AudioContext||window.webkitAudioContext)(); } catch(e) {} }
+function jBeep(f, type, vol, dur, delay) {
+  if (!jAudio) return;
+  var t = jAudio.currentTime + (delay||0);
+  var o = jAudio.createOscillator(); var g = jAudio.createGain();
+  o.type = type; o.frequency.value = f;
+  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t+dur);
+  o.connect(g); g.connect(jAudio.destination); o.start(t); o.stop(t+dur);
+}
+function jNoise(vol, dur, delay) {
+  if (!jAudio) return;
+  var t = jAudio.currentTime + (delay||0);
+  var buf = jAudio.createBuffer(1, jAudio.sampleRate*dur, jAudio.sampleRate);
+  var d = buf.getChannelData(0); for (var i=0;i<d.length;i++) d[i]=Math.random()*2-1;
+  var s = jAudio.createBufferSource(); s.buffer = buf;
+  var g = jAudio.createGain(); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t+dur);
+  var f = jAudio.createBiquadFilter(); f.type='lowpass'; f.frequency.value=600;
+  s.connect(f); f.connect(g); g.connect(jAudio.destination); s.start(t); s.stop(t+dur);
+}
 
 // ── 页面结构 ───────────────────────────────────────────────
 function pageJump() {
@@ -94,7 +116,7 @@ function jumpRestart() {
 
 function jumpReset() {
   jBoxes = []; jParts = []; jFloats = [];
-  jScore = 0; jCharge = 0; jCur = 0; jSaved = false;
+  jScore = 0; jCharge = 0; jCur = 0; jSaved = false;jPerTime = 0;
   jJump = null; jFall = null;
   var first = { x: 0, y: 0, r: 36, h: 26, color: J_COLORS[0], deco: false };
   jBoxes.push(first);
@@ -180,12 +202,14 @@ function jKeyUp(e) {
 function jPressStart(e) {
   if (e && e.cancelable) e.preventDefault();
   if (jState !== 'ready') return;
+  jInitAudio();
   jState = 'charging';
-  jCharge = 0;
+  jCharge = 0; jChargeLast = 0;
   var p = document.getElementById('jumpPower');
   if (p) p.style.display = 'block';
   var hint = document.getElementById('jumpHint');
   if (hint) hint.style.opacity = '0';
+  jBeep(160, 'sine', 0.08, 0.12);
 }
 function jPressEnd() {
   if (jState !== 'charging') return;
@@ -208,6 +232,8 @@ function jDoJump() {
     h: 52 + dist * 0.38
   };
   jState = 'jumping';
+  jBeep(220, 'triangle', 0.1, 0.18);
+  jBeep(330, 'sine', 0.06, 0.12, 0.04);
 }
 
 function jLand() {
@@ -219,11 +245,14 @@ function jLand() {
     // 成功落上下一个盒子
     var perfect = mNext <= 0.36;
     jScore += perfect ? 2 : 1;
+    if (perfect) { jScore += Math.pow(2, jPerTime); jPerTime++; }
+    else jPerTime = 0;
     jCur++;
     jPlayer.x = px; jPlayer.y = py;
     jDust(px, py, perfect ? 14 : 8, next.color);
     jFloats.push({ x: px, y: py - 46, t: 0, text: perfect ? '+2 完美!' : '+1', color: perfect ? '#e8a020' : '#2b3a55' });
-    if (perfect) jRing(px, py);
+    if (perfect) { jRing(px, py); jBeep(660,'sine',0.14,0.22); jBeep(880,'sine',0.1,0.2,0.06); jBeep(1100,'sine',0.07,0.14,0.12); }
+    else { jNoise(0.06,0.1); jBeep(280,'triangle',0.08,0.12); }
     if (jBoxes.length - jCur < 4) jGenBox();
     jUpdateCamTarget(false);
     jState = 'ready';
@@ -239,6 +268,8 @@ function jLand() {
   // 掉落
   jState = 'falling';
   jFall = { t: 0 };
+  jBeep(200,'sawtooth',0.07,0.35);
+  jBeep(80,'sine',0.1,0.5,0.1);
 }
 
 function jDiamond(px, py, b) {
@@ -267,6 +298,9 @@ function jGameOver() {
   btn.disabled = false;
   btn.textContent = '保存成绩';
   ov.style.display = 'flex';
+  jBeep(440,'square',0.06,0.15);
+  jBeep(330,'square',0.06,0.15,0.18);
+  jBeep(220,'square',0.08,0.3,0.36);
 }
 
 // ── 相机 / HUD ─────────────────────────────────────────────
@@ -313,6 +347,11 @@ function jTick(dt) {
     jPlayer.sx = 1 + sq * 0.22;
     var f = document.getElementById('jumpPowerFill');
     if (f) f.style.width = Math.min(jCharge, 1) * 100 + '%';
+    var now = performance.now();
+    if (now - jChargeLast > 120) {
+      jChargeLast = now;
+      jBeep(180 + jCharge*380, 'sine', 0.04+jCharge*0.03, 0.1);
+    }
   }
   // 跳跃动画
   if (jState === 'jumping' && jJump) {
