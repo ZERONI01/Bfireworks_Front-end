@@ -18,25 +18,63 @@ function render(pageId) {
 }
 
 function pageHome() {
-  var html = '<h2 style="margin-bottom:14px;font-weight:600">功能中心</h2>' +
-    '<div class="stat-row">' +
-      '<div class="stat-card" id="statUsers"><div class="num">-</div><div class="lbl">用户总数</div></div>' +
-      '<div class="stat-card" id="statAdmins"><div class="num">-</div><div class="lbl">管理员</div></div>' +
-      '<div class="stat-card"><div class="num">1</div><div class="lbl">功能模块</div></div>' +
-      '<div class="stat-card"><div class="num">v1.0</div><div class="lbl">版本</div></div>' +
+  var h = getTimeGreet() + '，' + esc(me.username);
+  var html =
+    '<div class="home-hero">' +
+      '<div class="home-hero-text">' +
+        '<div class="home-greet">' + h + '</div>' +
+        '<div class="home-sub">BWZ 工具站 — 烟花、游戏与效率工具集</div>' +
+      '</div>' +
     '</div>' +
-    '<div class="card"><h2>欢迎，' + esc(me.username) + '</h2>' +
-      '<p>通过左侧导航 <strong>烟花功能 / 烟花模拟器</strong> 进入烟花体验。支持点击发射、自动发射、以及自定义调色盘。</p></div>' +
-    '<button class="btn btn-primary" style="margin-top:4px" onclick="go(\'fw-sim\')">进入烟花模拟器</button>';
-  if (me && me.role === 'admin') {
-    api('GET', '/api/users').then(function(d) {
-      var users = d.users || [];
-      var admins = users.filter(function(u) { return u.role === 'admin'; }).length;
-      var elU = document.getElementById('statUsers'); if (elU) elU.querySelector('.num').textContent = users.length;
-      var elA = document.getElementById('statAdmins'); if (elA) elA.querySelector('.num').textContent = admins;
-    }).catch(function() {});
-  }
+    '<div class="home-grid">' +
+      homeCard('fw-sim', '', '烟花模拟器', '多人实时同步，自定义调色盘，点击/自动/混合三种模式', '#4a6fa5') +
+      homeCard('jump', '', '跳一跳', '蓄力跳跃，落盒得分，完美落心双倍，排行榜争锋', '#5a9e6f') +
+      homeCard('announcements', '', '公告板', '查看最新系统通知与更新日志', '#9e7a5a') +
+    '</div>' +
+    '<div class="card home-news" id="homeNews"><h3>' + icon('i-list',13) + ' 最新公告</h3><div style="text-align:center;color:var(--text-muted);padding:12px 0;font-size:12px">加载中...</div></div>';
+  // 加载最新公告
+  setTimeout(function() {
+    api('GET', '/api/announcements').then(function(d) {
+      var list = d.announcements || [];
+      var el = document.getElementById('homeNews');
+      if (!el) return;
+      if (!list.length) {
+        el.querySelector('div').textContent = '暂无公告';
+        return;
+      }
+      var latest = list[0];
+      var date = (latest.createdAt || latest.created_at || '').slice(0, 10);
+      el.querySelector('div').innerHTML =
+        '<div style="font-weight:500;color:var(--text);margin-bottom:4px">' + esc(latest.title) + '</div>' +
+        '<div style="color:var(--text-secondary);font-size:12px;line-height:1.6">' + esc(latest.content).substring(0, 120) + (latest.content && latest.content.length > 120 ? '...' : '') + '</div>' +
+        '<div style="color:var(--text-muted);font-size:11px;margin-top:6px">' + date + '</div>';
+    }).catch(function() {
+      var el = document.getElementById('homeNews');
+      if (el) el.querySelector('div').textContent = '加载失败';
+    });
+  }, 100);
   return html;
+}
+
+function getTimeGreet() {
+  var h = new Date().getHours();
+  if (h < 6) return '夜深了';
+  if (h < 9) return '早上好';
+  if (h < 12) return '上午好';
+  if (h < 14) return '中午好';
+  if (h < 18) return '下午好';
+  return '晚上好';
+}
+
+function homeCard(pageId, iconId, title, desc, color) {
+  return '<div class="home-card" onclick="go(\'' + pageId + '\')" style="--hc:' + color + '">' +
+    '<div class="home-card-icon"><svg viewBox="0 0 24 24"><use href="#' + (pageId === 'fw-sim' ? 'i-firework-logo' : pageId === 'jump' ? 'i-game' : 'i-list') + '"/></svg></div>' +
+    '<div class="home-card-body">' +
+      '<div class="home-card-title">' + title + '</div>' +
+      '<div class="home-card-desc">' + desc + '</div>' +
+    '</div>' +
+    '<div class="home-card-arrow"><svg viewBox="0 0 24 24"><use href="#i-chevron"/></svg></div>' +
+  '</div>';
 }
 
 function pageFireworks() {
@@ -97,13 +135,36 @@ function loadUserTable(q) {
 function filterUsers(q) { loadUserTable(q); }
 
 function pageSettings() {
-  return '<h2 style="margin-bottom:14px;font-weight:600">系统设置</h2>' +
-    '<div class="card"><h3>修改密码</h3>' +
-      '<div class="form-group"><label>旧密码</label><input type="password" id="sOld" placeholder="输入旧密码"></div>' +
-      '<div class="form-group"><label>新密码</label><input type="password" id="sNew" placeholder="输入新密码"></div>' +
-      '<div class="form-group"><label>确认新密码</label><input type="password" id="sConfirm" placeholder="再次输入"></div>' +
-      '<button class="btn btn-primary" onclick="chgPass()">更新密码</button> ' +
-      '<span id="sMsg" style="font-size:12px;margin-left:8px"></span></div>' +
+  var h = '<h2 style="margin-bottom:14px;font-weight:600">系统设置</h2>';
+  var isAdmin = me && me.role === 'admin';
+  if (isAdmin) {
+    h += '<div class="stat-row" id="settingsStats">' +
+      '<div class="stat-card" id="statUsers"><div class="num">-</div><div class="lbl">用户总数</div></div>' +
+      '<div class="stat-card" id="statAdmins"><div class="num">-</div><div class="lbl">管理员</div></div>' +
+      '<div class="stat-card" id="statAnnouncements"><div class="num">-</div><div class="lbl">公告数</div></div>' +
+    '</div>';
+  }
+  h += '<div class="card"><h3>修改密码</h3>' +
+    '<div class="form-group"><label>旧密码</label><input type="password" id="sOld" placeholder="输入旧密码"></div>' +
+    '<div class="form-group"><label>新密码</label><input type="password" id="sNew" placeholder="输入新密码"></div>' +
+    '<div class="form-group"><label>确认新密码</label><input type="password" id="sConfirm" placeholder="再次输入"></div>' +
+    '<button class="btn btn-primary" onclick="chgPass()">更新密码</button> ' +
+    '<span id="sMsg" style="font-size:12px;margin-left:8px"></span></div>' +
     '<div class="card"><h3>关于</h3><p style="color:var(--text-secondary);font-size:13px;margin-bottom:4px">BWZ工具站 v1.0</p>' +
-      '<p style="color:var(--text-muted);font-size:11px"><a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener" style="color:var(--text-muted);text-decoration:none">浙ICP备2026050961号</a></p></div>';
+    '<p style="color:var(--text-muted);font-size:11px"><a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener" style="color:var(--text-muted);text-decoration:none">浙ICP备2026050961号</a></p></div>';
+  if (isAdmin) {
+    setTimeout(function() {
+      api('GET', '/api/users').then(function(d) {
+        var users = d.users || [];
+        var admins = users.filter(function(u) { return u.role === 'admin'; }).length;
+        var elU = document.getElementById('statUsers'); if (elU) elU.querySelector('.num').textContent = users.length;
+        var elA = document.getElementById('statAdmins'); if (elA) elA.querySelector('.num').textContent = admins;
+      }).catch(function() {});
+      api('GET', '/api/announcements').then(function(d) {
+        var list = d.announcements || [];
+        var el = document.getElementById('statAnnouncements'); if (el) el.querySelector('.num').textContent = list.length;
+      }).catch(function() {});
+    }, 100);
+  }
+  return h;
 }
